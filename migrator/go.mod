@@ -6,7 +6,7 @@ require (
 	github.com/OpenNSW/core/configyaml v0.0.0-20261001085829-70cbb6fb53a3
 	github.com/OpenNSW/core/database v0.3.0
 	github.com/jackc/pgx/v5 v5.13.0
-	modernc.org/sqlite v1.62.0
+	modernc.org/sqlite v1.63.0
 )
 
 require (
