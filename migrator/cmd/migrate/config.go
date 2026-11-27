@@ -42,7 +42,7 @@ func LoadConfig() (Config, error) {
 		cfg.DB.SQLite = &database.SQLiteConfig{}
 	}
 	if cfg.DB.SQLite.Path == "" {
-		cfg.DB.SQLite.Path = "./agency_applications.db"
+		cfg.DB.SQLite.Path = "./migrator.db"
 	}
 	if cfg.DB.Postgres != nil && cfg.DB.Postgres.SSLMode == "" {
 		cfg.DB.Postgres.SSLMode = "require"

@@ -84,8 +84,9 @@ Commands:
   status           Print the applied/pending state of all migrations
   generate <name>  Create a new migration file with the next version number
 
-Configuration is read from a YAML file (see backend/config.example.yaml for
-the full schema — this command only reads its db and migrationDir fields):
+Configuration is read from the YAML file named by CONFIG_PATH. The command
+uses only its db and migrationDir fields; their shape and defaults are in
+https://github.com/OpenNSW/tools/tree/main/migrator#configuration
 
 Environment variables:
   CONFIG_PATH     Path to the config.yaml file (default: ./config.yaml)
