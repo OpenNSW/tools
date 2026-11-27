@@ -5,7 +5,9 @@ package migrator
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -19,6 +21,11 @@ type Migrator struct {
 	dir    string
 	driver string // "sqlite" or "postgres"
 }
+
+// sqliteTimeLayout is SQLite's own date and time format. SQLite has no date
+// type, so apply writes applied_at as text in this format, which SQLite's
+// date functions read.
+const sqliteTimeLayout = "2006-01-02 15:04:05.999999999-07:00"
 
 type migrationRecord struct {
 	version   int64
@@ -221,13 +228,16 @@ func (m *Migrator) apply(mg *Migration) error {
 		}
 	}
 
+	now := time.Now().UTC()
 	var insertQ string
+	var appliedAt any = now
 	if m.driver == "postgres" {
 		insertQ = `INSERT INTO __migrations (version, name, applied_at) VALUES ($1, $2, $3)`
 	} else {
 		insertQ = `INSERT INTO __migrations (version, name, applied_at) VALUES (?, ?, ?)`
+		appliedAt = now.Format(sqliteTimeLayout)
 	}
-	if _, err := tx.Exec(insertQ, mg.Version, mg.Name, time.Now().UTC()); err != nil {
+	if _, err := tx.Exec(insertQ, mg.Version, mg.Name, appliedAt); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -268,7 +278,7 @@ func (m *Migrator) rollback(mg *Migration) error {
 // -- @UP and -- @DOWN block stubs.
 func (m *Migrator) Generate(name string) error {
 	migrations, err := m.loadFiles()
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("reading migration dir: %w", err)
 	}
 
@@ -283,7 +293,8 @@ func (m *Migrator) Generate(name string) error {
 	content := fmt.Sprintf(
 		"-- Created at: %s\n"+
 			"-- Need Postgres- or SQLite-only SQL? Nest -- @postgres / -- @sqlite blocks\n"+
-			"-- inside @UP or @DOWN -- see docs/migrations.md.\n\n"+
+			"-- inside @UP or @DOWN: see\n"+
+			"-- https://github.com/OpenNSW/tools/tree/main/migrator#driver-specific-sql\n\n"+
 			"-- @UP\n\n\n-- @DOWN\n\n",
 		time.Now().UTC().Format(time.RFC3339),
 	)

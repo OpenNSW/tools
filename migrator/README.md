@@ -39,7 +39,7 @@ migrationDir: ./migrations
 | Field                 | Default                    |
 |-----------------------|----------------------------|
 | `db.driver`           | `sqlite`                   |
-| `db.sqlite.path`      | `./agency_applications.db` |
+| `db.sqlite.path`      | `./migrator.db`            |
 | `db.postgres.sslMode` | `require`                  |
 | `migrationDir`        | `./migrations`             |
 

@@ -8,7 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -240,5 +242,108 @@ func TestUp_RollsBackOnFailure(t *testing.T) {
 	}
 	if count != 0 {
 		t.Errorf("__migrations count = %d, want 0 after failed migration", count)
+	}
+}
+
+// SQLite has no date type, so applied_at is text. It must be in SQLite's own
+// format, which SQLite's date functions read, and the migrator must read it
+// back as a time.
+func TestUp_SQLiteAppliedAtFormat(t *testing.T) {
+	m, db := newTestMigrator(t, map[string]string{
+		"000001_create_foo.sql": "-- @UP\nCREATE TABLE foo (id INTEGER PRIMARY KEY);\n-- @DOWN\nDROP TABLE foo;",
+	})
+
+	before := time.Now().UTC().Add(-time.Second)
+	if err := m.Up(); err != nil {
+		t.Fatalf("Up() error = %v", err)
+	}
+	after := time.Now().UTC().Add(time.Second)
+
+	// "|| ''" makes the driver return the stored text, not a parsed time.
+	var raw string
+	var sqliteTime sql.NullString
+	if err := db.QueryRow(`SELECT applied_at || '', datetime(applied_at) FROM __migrations WHERE version = 1`).Scan(&raw, &sqliteTime); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := time.Parse(sqliteTimeLayout, raw)
+	if err != nil {
+		t.Fatalf("applied_at %q is not in SQLite's format: %v", raw, err)
+	}
+	if !strings.HasSuffix(raw, "+00:00") {
+		t.Errorf("applied_at %q, want a UTC time ending in +00:00", raw)
+	}
+	if stored.Before(before) || stored.After(after) {
+		t.Errorf("applied_at = %v, want between %v and %v", stored, before, after)
+	}
+	if !sqliteTime.Valid {
+		t.Errorf("datetime(applied_at) is NULL for applied_at %q", raw)
+	}
+
+	records, err := m.appliedMigrations()
+	if err != nil {
+		t.Fatalf("appliedMigrations() error = %v", err)
+	}
+	if got := records[1].appliedAt; !got.Equal(stored) {
+		t.Errorf("appliedMigrations()[1].appliedAt = %v, want %v", got, stored)
+	}
+}
+
+// A row in the format agency's migrator wrote still reads back.
+func TestAppliedMigrations_ReadsSQLiteFormat(t *testing.T) {
+	m, db := newTestMigrator(t, nil)
+	if err := m.initTable(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO __migrations (version, name, applied_at) VALUES (1, 'create_foo', '2026-11-27 04:41:15.916498+00:00')`); err != nil {
+		t.Fatal(err)
+	}
+
+	records, err := m.appliedMigrations()
+	if err != nil {
+		t.Fatalf("appliedMigrations() error = %v", err)
+	}
+	want := time.Date(2026, 11, 27, 4, 41, 15, 916498000, time.UTC)
+	if got := records[1].appliedAt; !got.Equal(want) {
+		t.Errorf("appliedAt = %v, want %v", got, want)
+	}
+}
+
+func TestGenerate_WritesNextVersionWithStubs(t *testing.T) {
+	m, _ := newTestMigrator(t, map[string]string{
+		"000001_create_foo.sql": "-- @UP\nCREATE TABLE foo (id INTEGER PRIMARY KEY);\n-- @DOWN\nDROP TABLE foo;",
+	})
+
+	if err := m.Generate("add_bar"); err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(m.dir, "000002_add_bar.sql"))
+	if err != nil {
+		t.Fatalf("reading the generated file: %v", err)
+	}
+	for _, want := range []string{
+		"-- @UP\n",
+		"-- @DOWN\n",
+		"https://github.com/OpenNSW/tools/tree/main/migrator#driver-specific-sql",
+	} {
+		if !strings.Contains(string(content), want) {
+			t.Errorf("generated file does not contain %q:\n%s", want, content)
+		}
+	}
+}
+
+// generate needs no existing directory: it creates it and starts at 000001.
+func TestGenerate_CreatesDirAndStartsAtOne(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "migrations")
+	m, err := New(nil, dir, "sqlite")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := m.Generate("init"); err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "000001_init.sql")); err != nil {
+		t.Errorf("000001_init.sql not created: %v", err)
 	}
 }

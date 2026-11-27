@@ -32,8 +32,8 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if cfg.DB.SQLite.Path != "./agency_applications.db" {
-		t.Errorf("DB.Path = %q, want ./agency_applications.db", cfg.DB.SQLite.Path)
+	if cfg.DB.SQLite.Path != "./migrator.db" {
+		t.Errorf("DB.Path = %q, want ./migrator.db", cfg.DB.SQLite.Path)
 	}
 	if cfg.Dir != "./migrations" {
 		t.Errorf("Dir = %q, want ./migrations", cfg.Dir)
