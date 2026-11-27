@@ -4,7 +4,7 @@
 
 OpenNSW tools are command-line tools that National Single Window deployments and their CI run. Libraries belong in `OpenNSW/core`, and application code stays in each deployment's repository.
 
-- Each tool is its own Go module in its own directory: `<tool>/go.mod` declares `github.com/OpenNSW/tools/<tool>`.
+- Each tool is its own Go module in its own directory: `<tool>/go.mod` declares `github.com/OpenNSW/tools/<tool>`. Modules don't nest, and every `.go` file is in a tool module; CI fails otherwise.
 - A tool's library code sits at the root of its directory, and each command in `<tool>/cmd/<command>/`.
 - Each tool has a `README.md` describing its commands and configuration, and a row in the root `README.md`.
 - A tool never imports another tool's module or a deployment's repository. It reuses core's modules (`database`, `configyaml`, ...) rather than copying them.
@@ -15,10 +15,10 @@ Use Go 1.26+, GNU make, gitleaks, golangci-lint v2.15.0 and editorconfig-checker
 
 - `make setup`: install golangci-lint, addlicense and editorconfig-checker, and enable the git hooks in `.githooks`.
 - `make check`: secret scan and `.editorconfig` check of the whole repo, then license headers, lint, tidy check and build in every tool module.
-- `make test`: race-enabled tests in every tool module; `make test/<tool>` for one. Every target takes `/<tool>`.
+- `make test`: race-enabled tests in every tool module; `make test/<tool>` for one. `fmt`, `lint`, `license`, `license-check`, `tidy`, `build`, `test` and `vuln` all take `/<tool>`.
 - `make fmt` and `make license`: apply formatting and SPDX headers.
 
-Keep each Makefile recipe line a single command that runs in both sh and Windows `cmd.exe`; CI runs the Makefile on Windows.
+Keep each Makefile recipe line one command, or `cd <dir> && <command>`, that runs in both sh and Windows `cmd.exe`; CI runs the Makefile on Windows.
 
 ## Compatibility
 
