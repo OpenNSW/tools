@@ -9,6 +9,17 @@ OpenNSW tools are command-line tools that National Single Window deployments and
 - Each tool has a `README.md` describing its commands and configuration, and a row in the root `README.md`.
 - A tool never imports another tool's module or a deployment's repository. It reuses core's modules (`database`, `configyaml`, ...) rather than copying them.
 
+## Build, Test, and Development Commands
+
+Use Go 1.26+, GNU make, gitleaks and golangci-lint v2.15.0.
+
+- `make setup`: install golangci-lint and addlicense, and enable the git hooks in `.githooks`.
+- `make check`: secret scan, license headers, lint, tidy check and build, in every tool module.
+- `make test`: race-enabled tests in every tool module; `make test/<tool>` for one. Every target takes `/<tool>`.
+- `make fmt` and `make license`: apply formatting and SPDX headers.
+
+Keep each Makefile recipe line a single command that runs in both sh and Windows `cmd.exe`; CI runs the Makefile on Windows.
+
 ## Compatibility
 
 Deployments in production pin these tools by version. Within a major version, keep working what deployments rely on: configuration fields and their defaults, commands and flags, output that scripts parse, and data a tool writes. A change that breaks any of these is marked `!` and released as a new major version.
