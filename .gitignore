@@ -1,0 +1,14 @@
+# Built binaries and test output
+/bin/
+*.exe
+*.test
+*.out
+
+# Local databases and environment files
+*.db
+.env
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
