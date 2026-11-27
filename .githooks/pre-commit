@@ -3,13 +3,14 @@
 # Native git pre-commit hook for github.com/OpenNSW/tools
 # Enable once per clone:  git config core.hooksPath .githooks   (or: make setup)
 #
-# Runs against STAGED changes, in each tool module that has staged .go,
-# go.mod or go.sum files. Auto-fixers (license headers, formatting) modify
+# Runs against STAGED changes: the EditorConfig check on every staged file,
+# the Go checks in each tool module that has staged .go, go.mod or go.sum
+# files. Auto-fixers (license headers, formatting) modify
 # files and re-stage them so the fixes are part of the commit.
 #
 # Bypass everything:      git commit --no-verify
 # Skip individual checks: SKIP=secrets,lint git commit
-#   tokens: secrets license format lint mod build
+#   tokens: secrets editorconfig license format lint mod build
 #
 # Partial staging: if you `git add -p` only some hunks of a .go file, the
 # auto-fixers re-stage the WHOLE file. Stage whole .go files (or run
@@ -51,6 +52,7 @@ need_tool go            "https://go.dev/dl/ (>= 1.26)"
 need_tool gitleaks      "brew install gitleaks  |  https://github.com/gitleaks/gitleaks/releases"
 need_tool golangci-lint "make tools  (golangci-lint v2.15.0)"
 need_tool addlicense    "make tools"
+need_tool editorconfig-checker "make tools"
 
 # 1. Secret scan (hard gate, before any auto-fix).
 if skip secrets; then warn "SKIP=secrets"; else
@@ -58,6 +60,20 @@ if skip secrets; then warn "SKIP=secrets"; else
   gitleaks git --staged --redact --no-banner \
     || die "gitleaks found a potential secret (above). Remove it or add an allow rule."
   ok "no secrets"
+fi
+
+# 2. EditorConfig: every staged file except .go files, which gofmt formats
+# (settings in .editorconfig-checker.json).
+if skip editorconfig; then warn "SKIP=editorconfig"; else
+  EC_FILES=()
+  while IFS= read -r -d '' f; do [[ "$f" == *.go ]] || EC_FILES+=("$f"); done \
+    < <(git diff --cached --name-only -z --diff-filter=ACMR)
+  if [ "${#EC_FILES[@]}" -gt 0 ]; then
+    info "editorconfig-checker: checking staged files"
+    editorconfig-checker "${EC_FILES[@]}" \
+      || die "files break .editorconfig (above): final newline, line endings, trailing whitespace or indent style. Fix and re-stage."
+    ok "editorconfig clean"
+  fi
 fi
 
 # Staged .go, go.mod and go.sum files: Added/Copied/Modified/Renamed, NUL-safe.
@@ -83,7 +99,7 @@ for f in "${STAGED[@]}"; do
 done
 info "modules: ${MODULES[*]}"
 
-# 2. License headers: add the SPDX header where missing, then re-stage.
+# 3. License headers: add the SPDX header where missing, then re-stage.
 if skip license; then warn "SKIP=license"; elif [ "${#STAGED_GO[@]}" -gt 0 ]; then
   info "addlicense: ensuring SPDX headers"
   addlicense -f "$LICENSE_TMPL" "${STAGED_GO[@]}"
@@ -91,7 +107,7 @@ if skip license; then warn "SKIP=license"; elif [ "${#STAGED_GO[@]}" -gt 0 ]; th
   ok "headers ensured + re-staged"
 fi
 
-# 3. Format the staged .go files: gofmt + goimports via golangci-lint, run
+# 4. Format the staged .go files: gofmt + goimports via golangci-lint, run
 # from each file's module, then re-stage.
 if skip format; then warn "SKIP=format"; elif [ "${#STAGED_GO[@]}" -gt 0 ]; then
   info "golangci-lint fmt"
@@ -107,7 +123,7 @@ if skip format; then warn "SKIP=format"; elif [ "${#STAGED_GO[@]}" -gt 0 ]; then
   ok "formatted + re-staged"
 fi
 
-# 4. Lint each module with staged changes.
+# 5. Lint each module with staged changes.
 if skip lint; then warn "SKIP=lint"; else
   info "golangci-lint run"
   lint_ok=true
@@ -119,7 +135,7 @@ if skip lint; then warn "SKIP=lint"; else
   ok "lint clean"
 fi
 
-# 5. go.mod/go.sum must be tidy (checked without changing them).
+# 6. go.mod/go.sum must be tidy (checked without changing them).
 if skip mod; then warn "SKIP=mod"; else
   info "go mod tidy check"
   for mod in "${MODULES[@]}"; do
@@ -129,7 +145,7 @@ if skip mod; then warn "SKIP=mod"; else
   ok "go.mod/go.sum tidy"
 fi
 
-# 6. Build each module with staged changes.
+# 7. Build each module with staged changes.
 if skip build; then warn "SKIP=build"; else
   info "go build"
   for mod in "${MODULES[@]}"; do

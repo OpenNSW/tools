@@ -119,8 +119,26 @@ jobs:
           make --version
       - name: make tools
         run: make SHELL=cmd.exe tools
-      - name: make license-check lint tidy build test
-        run: make SHELL=cmd.exe license-check lint tidy build test
+      - name: make editorconfig license-check lint tidy build test
+        run: make SHELL=cmd.exe editorconfig license-check lint tidy build test
+
+  # Checks every file against .editorconfig: final newline, line endings,
+  # trailing whitespace and indent style (settings in .editorconfig-checker.json).
+  editorconfig:
+    name: EditorConfig
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+          cache: false
+      - name: Install editorconfig-checker
+        run: go install github.com/editorconfig-checker/editorconfig-checker/v3/cmd/editorconfig-checker@v3.11.1
+      - name: Check files against .editorconfig
+        run: make editorconfig
 
   secret-scan:
     name: Secret Scan
@@ -142,7 +160,7 @@ jobs:
   # because there are no modules.
   ci:
     name: CI
-    needs: [ modules, module, windows, secret-scan ]
+    needs: [ modules, module, windows, editorconfig, secret-scan ]
     if: always()
     runs-on: ubuntu-latest
     steps:

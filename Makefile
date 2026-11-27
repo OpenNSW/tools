@@ -3,6 +3,9 @@
 # Lists and loops use GNU make functions instead.
 
 GOLANGCI_VERSION := v2.15.0
+# The newest editorconfig-checker that builds with Go 1.26; later releases
+# need Go 1.27.
+ECC_VERSION      := v3.11.1
 LICENSE_TMPL     := .github/license-header.tmpl
 
 # Every top-level directory with a go.mod is a tool module.
@@ -14,16 +17,17 @@ rwildcard = $(foreach d,$(wildcard $(addsuffix /*,$(1))),$(call rwildcard,$(d),$
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup tools hooks fmt lint license license-check tidy build test vuln secrets check
+.PHONY: help setup tools hooks editorconfig fmt lint license license-check tidy build test vuln secrets check
 
 # help prints with $(info), and its one command (cd .) is a no-op that works in
 # every shell, so make doesn't report that there was nothing to do.
 help:
-	$(info Targets, each run in every tool module:)
+	$(info Targets, each run in every tool module unless marked whole repo:)
 	$(info )
 	$(info setup          Install dev tools and enable git hooks)
-	$(info tools          Install golangci-lint $(GOLANGCI_VERSION) and addlicense)
+	$(info tools          Install golangci-lint $(GOLANGCI_VERSION), addlicense and editorconfig-checker $(ECC_VERSION))
 	$(info hooks          Enable the git hooks in .githooks (once per clone))
+	$(info editorconfig   Check every file against .editorconfig (whole repo))
 	$(info fmt            Format code (gofmt + goimports via golangci-lint))
 	$(info lint           Run golangci-lint)
 	$(info license        Add missing SPDX license headers to Go files)
@@ -32,8 +36,8 @@ help:
 	$(info build          Build every package)
 	$(info test           Run the tests with the race detector)
 	$(info vuln           Scan dependencies for known vulnerabilities)
-	$(info secrets        Scan the working tree for secrets with gitleaks)
-	$(info check          secrets, license-check, lint, tidy and build)
+	$(info secrets        Scan the working tree for secrets with gitleaks (whole repo))
+	$(info check          secrets, editorconfig, license-check, lint, tidy and build)
 	$(info )
 	$(info Run a target for one tool with <target>/<tool>, e.g. make test/migrator)
 	$(info Tools: $(MODULES))
@@ -44,9 +48,15 @@ setup: tools hooks
 tools:
 	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_VERSION)
 	go install github.com/google/addlicense@latest
+	go install github.com/editorconfig-checker/editorconfig-checker/v3/cmd/editorconfig-checker@$(ECC_VERSION)
 
 hooks:
 	git config core.hooksPath .githooks
+
+# Settings in .editorconfig-checker.json: .go files are left to gofmt, whose
+# raw strings can hold space-indented text, and indent widths aren't checked.
+editorconfig:
+	editorconfig-checker
 
 fmt: $(addprefix fmt/,$(MODULES))
 fmt/%:
@@ -83,4 +93,4 @@ vuln/%:
 secrets:
 	gitleaks dir . --redact --no-banner
 
-check: secrets license-check lint tidy build
+check: secrets editorconfig license-check lint tidy build

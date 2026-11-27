@@ -11,10 +11,10 @@ OpenNSW tools are command-line tools that National Single Window deployments and
 
 ## Build, Test, and Development Commands
 
-Use Go 1.26+, GNU make, gitleaks and golangci-lint v2.15.0.
+Use Go 1.26+, GNU make, gitleaks, golangci-lint v2.15.0 and editorconfig-checker v3.11.1.
 
-- `make setup`: install golangci-lint and addlicense, and enable the git hooks in `.githooks`.
-- `make check`: secret scan, license headers, lint, tidy check and build, in every tool module.
+- `make setup`: install golangci-lint, addlicense and editorconfig-checker, and enable the git hooks in `.githooks`.
+- `make check`: secret scan and `.editorconfig` check of the whole repo, then license headers, lint, tidy check and build in every tool module.
 - `make test`: race-enabled tests in every tool module; `make test/<tool>` for one. Every target takes `/<tool>`.
 - `make fmt` and `make license`: apply formatting and SPDX headers.
 
@@ -26,7 +26,7 @@ Deployments in production pin these tools by version. Within a major version, ke
 
 ## Coding Style & Naming Conventions
 
-Follow `.editorconfig`: tabs for Go and Makefiles, two spaces for YAML and JSON. Format with gofmt and goimports through golangci-lint, and pass `.golangci.yml`. Every `.go` file starts with the two SPDX lines in `.github/license-header.tmpl`; add no other license headers.
+Follow `.editorconfig`: tabs for Go and Makefiles, two spaces for YAML and JSON, LF line endings, a final newline and no trailing whitespace; editorconfig-checker enforces it on every file except `.go` files, which gofmt formats. Format with gofmt and goimports through golangci-lint, and pass `.golangci.yml`. Every `.go` file starts with the two SPDX lines in `.github/license-header.tmpl`; add no other license headers.
 
 Write comments about the code as it is now, not about how it got there. Don't mention earlier behaviour, where code used to live, or the issues and PRs that changed it, and don't use words like "now", "no longer" or "used to". That history belongs in the commit message and the PR. A reference to an open issue for planned work belongs in a `TODO(#NNN)` comment.
 
