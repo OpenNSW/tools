@@ -1,6 +1,6 @@
 # Contributing
 
-Contributions are welcome. This guide covers how the repository is laid out, how to add a tool, and how changes are reviewed and released.
+Contributions are welcome. This guide covers how the repository is laid out, how to add a tool, how to build and check your changes, and how they are reviewed and released.
 
 ## Layout
 
@@ -21,7 +21,95 @@ Each module has its own dependencies and its own releases. A tool never imports 
 1. Open an issue that describes the tool and the deployments that need it.
 2. Create `<tool>/` with its `go.mod` (module `github.com/OpenNSW/tools/<tool>`), its commands under `cmd/<command>`, tests and a README.
 3. Add a row to the tools table in the [README](README.md).
-4. Add a `/<tool>/` line to [.github/CODEOWNERS](.github/CODEOWNERS).
+4. If the tool needs code owners besides the repository's, add a `/<tool>/` line to [.github/CODEOWNERS](.github/CODEOWNERS) that lists them all.
+5. Add `/<tool>` to the `gomod` directories in [.github/dependabot.yml](.github/dependabot.yml).
+
+CI finds the new module by its `go.mod`, so the workflows need no change.
+
+## Development
+
+### Prerequisites
+
+| Tool | Version | Install |
+|---|---|---|
+| Go | ≥ 1.26 | [go.dev/dl](https://go.dev/dl/) |
+| GNU make | ≥ 3.81 | macOS and Linux: preinstalled or the system package manager. Windows: `winget install ezwinports.make`, `choco install make` or `scoop install make` |
+| git | ≥ 2.9 | System package manager. On Windows, [Git for Windows](https://gitforwindows.org/), whose bash runs the git hooks |
+| golangci-lint | v2.15.0 | `make tools` |
+| addlicense | latest | `make tools` |
+| editorconfig-checker | v3.11.1 | `make tools` |
+| gitleaks | latest | `brew install gitleaks`, `choco install gitleaks`, `scoop install gitleaks` or a [release binary](https://github.com/gitleaks/gitleaks/releases) |
+
+Ensure `$(go env GOPATH)/bin` is on your `PATH`. `make test` uses the race detector, which needs cgo and a C compiler; on Windows, install a MinGW-w64 gcc.
+
+### One-time setup
+
+```sh
+make setup
+```
+
+This installs golangci-lint, addlicense and editorconfig-checker, and runs `git config core.hooksPath .githooks` to enable the git hooks.
+
+### Make targets
+
+Each target runs in every tool module, except `editorconfig` and `secrets`, which check the whole repository. Add `/<tool>` to run a module target in one module, e.g. `make test/migrator`. Run `make` on its own to list the targets.
+
+| Target | What it does |
+|---|---|
+| `make check` | `secrets`, `editorconfig`, `license-check`, `lint`, `tidy` and `build`, as the pre-commit hook checks them |
+| `make test` | `go test -race ./...` |
+| `make editorconfig` | Checks every file against `.editorconfig` |
+| `make fmt` | Formats code (gofmt + goimports via golangci-lint) |
+| `make lint` | Runs golangci-lint |
+| `make license` | Adds missing SPDX headers |
+| `make license-check` | Checks every `.go` file has its SPDX header, as CI does |
+| `make tidy` | Checks that `go.mod` and `go.sum` are tidy (`go mod tidy -diff`) |
+| `make build` | Builds every package |
+| `make vuln` | Scans dependencies with govulncheck |
+| `make secrets` | Scans the working tree with gitleaks |
+
+The Makefile runs the same in sh and in Windows `cmd.exe`: each recipe line is one command, with no shell loops, conditionals, pipes or Unix-only tools. Keep it that way; CI runs it on Windows.
+
+### EditorConfig
+
+[.editorconfig](.editorconfig) sets each file type's line endings, final newline, trailing whitespace and indent style, and editors that support EditorConfig apply it as you type. `make editorconfig`, the pre-commit hook and CI check every file against it with editorconfig-checker, with two settings in [.editorconfig-checker.json](.editorconfig-checker.json):
+
+- `.go` files are left out. gofmt formats them, and golangci-lint checks that, while their raw strings can hold text indented with spaces, such as YAML test fixtures.
+- Indent widths aren't checked, only tabs against spaces, so Markdown lists, shell continuation lines and the license text keep their alignment.
+
+### Git hooks
+
+The pre-commit hook runs against staged changes: the EditorConfig check on every staged file, and the Go checks in each tool module with staged `.go`, `go.mod` or `go.sum` files:
+
+| Step | Tool | Behaviour |
+|---|---|---|
+| Secret scan | `gitleaks` | Hard gate: runs first, before any auto-fix |
+| EditorConfig | `editorconfig-checker` | Blocks on a missing final newline, CRLF line endings, trailing whitespace or the wrong indent style |
+| License headers | `addlicense` | Adds missing SPDX headers, re-stages |
+| Format | `golangci-lint fmt` | Formats the staged `.go` files, re-stages |
+| Lint | `golangci-lint run` | Blocks on errors |
+| go mod tidy | `go mod tidy -diff` | Blocks when `go.mod` or `go.sum` is not tidy |
+| Build | `go build ./...` | Blocks on compile errors |
+
+If you `git add -p` only some hunks of a `.go` file, the auto-fixers re-stage the whole file. Stage whole files, or run `make fmt` first.
+
+The pre-push hook runs `go test -race ./...` in every tool module.
+
+Bypass the hooks with `git commit --no-verify` or `git push --no-verify`, or skip single pre-commit checks with `SKIP`, e.g. `SKIP=secrets,lint git commit`. The `SKIP` tokens are `secrets`, `editorconfig`, `license`, `format`, `lint`, `mod` and `build`.
+
+### CI
+
+| Job | What it checks |
+|---|---|
+| Find modules | Lists the tool modules: every top-level directory with a `go.mod` |
+| Module (`<tool>`) | `go.mod` tidy, golangci-lint, license headers, tests with `-race` and gosec (informational), with the Go version in `go.mod`; then govulncheck with the latest stable Go |
+| Make on Windows | The Makefile under `cmd.exe`: `editorconfig`, `license-check`, `lint`, `tidy`, `build` and `test` |
+| EditorConfig | Every file against `.editorconfig` |
+| Secret Scan | gitleaks |
+| CI | Passes only when every job above passed. Branch protection requires it |
+| Conventional Commit Title | The PR title follows Conventional Commits |
+
+CI enforces every gate on its own: `--no-verify` skips the local hooks, not CI.
 
 ## Compatibility
 

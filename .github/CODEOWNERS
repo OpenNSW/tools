@@ -2,7 +2,5 @@
 # Code owners review every change to the paths they own.
 # See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
-*                     @sthanikan2000 @mushrafmim
-
-# Protect this file itself: changes to ownership policy require review.
-/.github/CODEOWNERS   @mushrafmim
+# The whole repository, including every tool and this file.
+*   @sthanikan2000 @mushrafmim

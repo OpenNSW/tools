@@ -1,0 +1,6 @@
+{
+  "Exclude": ["\\.go$"],
+  "Disable": {
+    "IndentSize": true
+  }
+}

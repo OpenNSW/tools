@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+#
+# Native git pre-push hook for github.com/OpenNSW/tools
+# Runs every tool module's tests before every push.
+#
+# Bypass: git push --no-verify
+
+set -euo pipefail
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+if [ -z "${GOPATH:-}" ] && command -v go >/dev/null 2>&1; then
+  GOPATH="$(go env GOPATH)"
+fi
+if [ -n "${GOPATH:-}" ]; then
+  export PATH="$GOPATH/bin:$PATH"
+fi
+
+if [ -t 2 ]; then
+  BLD=$'\033[1m'; RST=$'\033[0m'; GRN=$'\033[32m'; RED=$'\033[31m'
+else BLD=""; RST=""; GRN=""; RED=""; fi
+info() { printf '%s==>%s %s\n' "$BLD" "$RST" "$*" >&2; }
+ok()   { printf '  %sok%s  %s\n' "$GRN" "$RST" "$*" >&2; }
+die()  { printf '%sFAIL%s %s\n' "$RED" "$RST" "$*" >&2; exit 1; }
+
+shopt -s nullglob
+for gomod in */go.mod; do
+  mod="${gomod%/go.mod}"
+  info "go test -race ./... in $mod"
+  go -C "$mod" test -race ./... \
+    || die "tests failed in $mod. Fix before pushing (or bypass: git push --no-verify)."
+done
+ok "all tests passed"

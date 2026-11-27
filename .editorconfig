@@ -15,6 +15,9 @@ indent_size = 4
 [{go.mod,go.sum}]
 indent_style = tab
 
+[Makefile]
+indent_style = tab
+
 [{*.yml,*.yaml,*.json}]
 indent_style = space
 indent_size = 2
