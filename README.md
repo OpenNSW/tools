@@ -6,6 +6,7 @@ Command-line tools that National Single Window deployments and their CI run. The
 
 | Tool | Command | What it does |
 |------|---------|--------------|
+| [`migrator`](migrator/README.md) | `migrate` | Applies versioned SQL migrations to PostgreSQL or SQLite, and records each applied version in a `__migrations` table |
 
 ## What belongs here
 

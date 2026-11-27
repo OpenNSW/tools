@@ -22,7 +22,7 @@ Keep each Makefile recipe line a single command that runs in both sh and Windows
 
 ## Compatibility
 
-Deployments in production pin these tools by version. Within a major version, keep working what deployments rely on: configuration fields and their defaults, commands and flags, output that scripts parse, and data a tool writes. A change that breaks any of these is marked `!` and released as a new major version.
+Deployments in production pin these tools by version. Within a major version, keep working what deployments rely on: configuration fields and their defaults, commands and flags, output that scripts parse, and data a tool writes. For the migrator, that includes the columns `migrate status` prints and the `__migrations` table. A change that breaks any of these is marked `!` and released as a new major version.
 
 ## Coding Style & Naming Conventions
 
