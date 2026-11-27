@@ -1,6 +1,6 @@
-# Every recipe line is a single command that runs the same in sh and in
-# Windows cmd.exe: no shell loops, conditionals, pipes or Unix-only tools.
-# Lists and loops use GNU make functions instead.
+# Every recipe line is one command, or `cd <dir> && <command>`, and runs the
+# same in sh and in Windows cmd.exe: no shell loops, if, pipes or Unix-only
+# tools. Lists and loops use GNU make functions instead.
 
 GOLANGCI_VERSION := v2.15.0
 # The newest editorconfig-checker that builds with Go 1.26; later releases
@@ -39,7 +39,8 @@ help:
 	$(info secrets        Scan the working tree for secrets with gitleaks (whole repo))
 	$(info check          secrets, editorconfig, license-check, lint, tidy and build)
 	$(info )
-	$(info Run a target for one tool with <target>/<tool>, e.g. make test/migrator)
+	$(info fmt, lint, license, license-check, tidy, build, test and vuln also run)
+	$(info for one tool as <target>/<tool>, e.g. make test/migrator)
 	$(info Tools: $(MODULES))
 	@cd .
 

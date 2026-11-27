@@ -14,7 +14,7 @@ Each tool lives in its own directory and is its own Go module:
 └── cmd/<command>/    each command the tool provides
 ```
 
-Each module has its own dependencies and its own releases. A tool never imports another tool's module or a deployment's repository. Library code that several tools or applications need belongs in [OpenNSW/core](https://github.com/OpenNSW/core).
+Modules don't nest: each tool has one `go.mod`, and every `.go` file is in a tool module. Each module has its own dependencies and its own releases. A tool never imports another tool's module or a deployment's repository. Library code that several tools or applications need belongs in [OpenNSW/core](https://github.com/OpenNSW/core).
 
 ## Adding a tool
 
@@ -52,7 +52,7 @@ This installs golangci-lint, addlicense and editorconfig-checker, and runs `git 
 
 ### Make targets
 
-Each target runs in every tool module, except `editorconfig` and `secrets`, which check the whole repository. Add `/<tool>` to run a module target in one module, e.g. `make test/migrator`. Run `make` on its own to list the targets.
+The Go targets run in every tool module, and `editorconfig` and `secrets` check the whole repository. Add `/<tool>` to `fmt`, `lint`, `license`, `license-check`, `tidy`, `build`, `test` or `vuln` to run it in one module, e.g. `make test/migrator`. Run `make` on its own to list the targets.
 
 | Target | What it does |
 |---|---|
@@ -68,7 +68,7 @@ Each target runs in every tool module, except `editorconfig` and `secrets`, whic
 | `make vuln` | Scans dependencies with govulncheck |
 | `make secrets` | Scans the working tree with gitleaks |
 
-The Makefile runs the same in sh and in Windows `cmd.exe`: each recipe line is one command, with no shell loops, conditionals, pipes or Unix-only tools. Keep it that way; CI runs it on Windows.
+The Makefile runs the same in sh and in Windows `cmd.exe`: each recipe line is one command, or `cd <dir> && <command>`, with no shell loops, `if`, pipes or Unix-only tools. Keep it that way; CI runs it on Windows.
 
 ### EditorConfig
 
@@ -79,7 +79,7 @@ The Makefile runs the same in sh and in Windows `cmd.exe`: each recipe line is o
 
 ### Git hooks
 
-The pre-commit hook runs against staged changes: the EditorConfig check on every staged file, and the Go checks in each tool module with staged `.go`, `go.mod` or `go.sum` files:
+The pre-commit hook runs against staged changes: the EditorConfig check on every staged file, and the Go checks in each tool module with staged `.go`, `go.mod` or `go.sum` files, deleted ones included. It refuses a `.go` file outside every tool module, and a nested `go.mod`:
 
 | Step | Tool | Behaviour |
 |---|---|---|
@@ -101,9 +101,9 @@ Bypass the hooks with `git commit --no-verify` or `git push --no-verify`, or ski
 
 | Job | What it checks |
 |---|---|
-| Find modules | Lists the tool modules: every top-level directory with a `go.mod` |
+| Find modules | Lists the tool modules, every top-level directory with a `go.mod`. Fails if a `.go` file is outside them or a `go.mod` is nested |
 | Module (`<tool>`) | `go.mod` tidy, golangci-lint, license headers, tests with `-race` and gosec (informational), with the Go version in `go.mod`; then govulncheck with the latest stable Go |
-| Make on Windows | The Makefile under `cmd.exe`: `editorconfig`, `license-check`, `lint`, `tidy`, `build` and `test` |
+| Make on Windows | The Makefile under `cmd.exe`, with the latest stable Go: `editorconfig`, `license-check`, `lint`, `tidy`, `build` and `test` |
 | EditorConfig | Every file against `.editorconfig` |
 | Secret Scan | gitleaks |
 | CI | Passes only when every job above passed. Branch protection requires it |

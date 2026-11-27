@@ -21,10 +21,25 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      # Fails when a go.mod isn't at <tool>/go.mod or a .go file is outside
+      # every tool module, because the jobs below would skip that code.
       - name: List the tool modules
         id: find
         run: |
-          dirs=$(find . -mindepth 2 -maxdepth 2 -name go.mod -printf '%h\n' | sed 's|^\./||' | sort | jq -R . | jq -cs .)
+          nested=$(git ls-files -- 'go.mod' '*/go.mod' | awk -F/ 'NF != 2')
+          if [ -n "$nested" ]; then
+            echo "::error::Each tool has one go.mod, at <tool>/go.mod. Move or remove:" $nested
+            exit 1
+          fi
+          modules=$(git ls-files -- '*/go.mod' | cut -d/ -f1 | sort -u)
+          stray=$(git ls-files -- '*.go' | MODULES="$modules" awk -F/ '
+            BEGIN { n = split(ENVIRON["MODULES"], m, "\n"); for (i = 1; i <= n; i++) in_mod[m[i]] = 1 }
+            NF == 1 || !($1 in in_mod)')
+          if [ -n "$stray" ]; then
+            echo "::error::These Go files are outside every tool module:" $stray
+            exit 1
+          fi
+          dirs=$(printf '%s' "$modules" | jq -R -s -c 'split("\n") | map(select(length > 0))')
           echo "Modules: $dirs"
           echo "dirs=$dirs" >> "$GITHUB_OUTPUT"
 
@@ -97,7 +112,8 @@ jobs:
         run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
   # Runs the Makefile in cmd.exe, as GNU make does on Windows when no sh is on
-  # the PATH, so its recipes stay portable.
+  # the PATH, so its recipes stay portable. It uses the latest stable Go, which
+  # builds every module whatever Go version its go.mod needs.
   windows:
     name: Make on Windows
     needs: modules
@@ -109,7 +125,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@v7
         with:
-          go-version-file: ${{ fromJSON(needs.modules.outputs.dirs)[0] }}/go.mod
+          go-version: stable
           cache-dependency-path: '*/go.sum'
           cache: true
       - name: Install GNU make
