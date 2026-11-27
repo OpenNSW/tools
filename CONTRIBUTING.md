@@ -21,7 +21,7 @@ Each module has its own dependencies and its own releases. A tool never imports 
 1. Open an issue that describes the tool and the deployments that need it.
 2. Create `<tool>/` with its `go.mod` (module `github.com/OpenNSW/tools/<tool>`), its commands under `cmd/<command>`, tests and a README.
 3. Add a row to the tools table in the [README](README.md).
-4. Add a `/<tool>/` line to [.github/CODEOWNERS](.github/CODEOWNERS).
+4. If the tool needs code owners besides the repository's, add a `/<tool>/` line to [.github/CODEOWNERS](.github/CODEOWNERS) that lists them all.
 5. Add `/<tool>` to the `gomod` directories in [.github/dependabot.yml](.github/dependabot.yml).
 
 CI finds the new module by its `go.mod`, so the workflows need no change.
